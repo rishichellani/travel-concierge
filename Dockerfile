@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY generate.py app.py agent_instructions.md ./
 COPY destinations/ ./destinations/
+COPY .streamlit/ ./.streamlit/
 
 RUN mkdir -p /app/output
 VOLUME ["/app/output"]

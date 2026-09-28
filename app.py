@@ -12,13 +12,80 @@ import streamlit as st
 # On Streamlit Community Cloud, secrets set in the dashboard land in
 # st.secrets, not in the environment -- mirror them into os.environ so
 # generate.py's os.environ / dotenv-based lookups keep working unchanged.
-for _key in ("GEMINI_API_KEY", "GROQ_API_KEY"):
-    if _key in st.secrets and not os.environ.get(_key):
-        os.environ[_key] = st.secrets[_key]
+# Locally there's no secrets.toml at all (we use .env instead), and merely
+# touching st.secrets in that case raises StreamlitSecretNotFoundError, so
+# this whole block is best-effort.
+try:
+    for _key in ("GEMINI_API_KEY", "GROQ_API_KEY"):
+        if _key in st.secrets and not os.environ.get(_key):
+            os.environ[_key] = st.secrets[_key]
+except st.errors.StreamlitSecretNotFoundError:
+    pass
 
 from generate import generate_itinerary_from_params, slugify
 
 st.set_page_config(page_title="Travel Concierge", page_icon="🧭", layout="wide")
+
+# Brand styling to match rishichellani.netlify.app (navy/teal, -apple-system stack).
+# Theme colors (dark base, teal primary) come from .streamlit/config.toml; this
+# covers the bits Streamlit's theme engine doesn't reach: fonts, buttons, and
+# the custom header/footer.
+st.markdown(
+    """
+    <style>
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+    .concierge-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(14,165,233,0.12);
+        border: 1px solid rgba(14,165,233,0.3);
+        border-radius: 100px;
+        padding: 0.375rem 1rem;
+        font-size: 0.8125rem;
+        color: #38bdf8;
+        margin-bottom: 1rem;
+        letter-spacing: 0.04em;
+        font-weight: 500;
+    }
+    .concierge-badge::before { content: '●'; font-size: 0.5rem; }
+    .concierge-title { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+    .concierge-title span { color: #0ea5e9; }
+    .concierge-tagline { color: #94a3b8; font-size: 1rem; margin-bottom: 1.5rem; }
+
+    div.stButton > button, div.stDownloadButton > button, div[data-testid="stFormSubmitButton"] > button {
+        background: #0ea5e9 !important;
+        color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: background 0.2s, transform 0.15s !important;
+    }
+    div.stButton > button:hover, div.stDownloadButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {
+        background: #0284c7 !important;
+        transform: translateY(-1px);
+    }
+
+    .concierge-footer {
+        margin-top: 3rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(148,163,184,0.15);
+        text-align: center;
+        font-size: 0.8125rem;
+        color: #64748b;
+    }
+    .concierge-footer a { color: #0ea5e9; text-decoration: none; font-weight: 600; }
+    .concierge-footer a:hover { text-decoration: underline; }
+    </style>
+
+    <div class="concierge-badge">AI Travel Concierge</div>
+    <div class="concierge-title">Plan your next trip with <span>Gemini</span></div>
+    <p class="concierge-tagline">Tell us your constraints — get a day-by-day itinerary, grounded in real local highlights.</p>
+    """,
+    unsafe_allow_html=True,
+)
 
 FOCUS_OPTIONS = [
     "Food",
@@ -30,9 +97,6 @@ FOCUS_OPTIONS = [
     "Nature",
     "Family-Friendly",
 ]
-
-st.title("🧭 AI Travel Concierge")
-st.caption("Tell us your constraints — Gemini builds the day-by-day plan.")
 
 with st.sidebar:
     st.header("Trip Details")
@@ -85,3 +149,14 @@ if st.session_state.get("itinerary_md"):
     st.markdown(st.session_state["itinerary_md"])
 else:
     st.info("Fill out the trip details in the sidebar and click **Generate Itinerary** to begin.")
+
+st.markdown(
+    """
+    <div class="concierge-footer">
+      Built by <a href="https://rishichellani.netlify.app" target="_blank">Rishi Chellani</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/rishichellani/travel-concierge" target="_blank">View on GitHub</a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

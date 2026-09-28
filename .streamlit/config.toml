@@ -1,0 +1,8 @@
+# Matches the navy/teal palette used across rishichellani.netlify.app
+[theme]
+base = "dark"
+primaryColor = "#0ea5e9"
+backgroundColor = "#0f172a"
+secondaryBackgroundColor = "#1e293b"
+textColor = "#f8fafc"
+font = "sans serif"
