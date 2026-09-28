@@ -94,6 +94,26 @@ def write_package(city, package):
     return action, path
 
 
+# Models occasionally emit raw HTML inside Markdown table cells (e.g. <br>
+# for a line break, <ul><li> for a list) even when told not to -- GFM tables
+# can't hold multi-line content natively, so this is a common LLM habit.
+# st.markdown() doesn't render HTML by default, so these show up as literal
+# text; clean up the common cases as a backstop for the prompt instruction.
+_HTML_CLEANUP = [
+    (re.compile(r"<br\s*/?>", re.IGNORECASE), "; "),
+    (re.compile(r"</li>", re.IGNORECASE), ";"),
+    (re.compile(r"<li>", re.IGNORECASE), " "),
+    (re.compile(r"</?ul>", re.IGNORECASE), ""),
+    (re.compile(r"</?ol>", re.IGNORECASE), ""),
+]
+
+
+def _strip_stray_html(text):
+    for pattern, replacement in _HTML_CLEANUP:
+        text = pattern.sub(replacement, text)
+    return text
+
+
 def _generate_content_gemini(client, prompt):
     """Calls Gemini."""
     return client.models.generate_content(
@@ -125,13 +145,13 @@ def _generate_content(client, prompt):
     Returns (text, engine_used) so callers can surface which one ran."""
     try:
         response = _generate_content_gemini(client, prompt)
-        return response.text, "gemini"
+        return _strip_stray_html(response.text), "gemini"
     except Exception as exc:
         logger.warning(
             "Gemini request failed (%s: %s); falling back to Groq (%s).",
             type(exc).__name__, exc, GROQ_MODEL,
         )
-        return _generate_content_groq(prompt), "groq"
+        return _strip_stray_html(_generate_content_groq(prompt)), "groq"
 
 
 def call_gemini_chef(city, path):
@@ -146,7 +166,11 @@ def call_gemini_chef(city, path):
     which includes agent instructions and user requirements. Generate the final,
     fully detailed travel itinerary in clean Markdown format, covering exactly
     the number of days given by "Duration" in the User Requirements section
-    below (not any other day count you may see elsewhere).
+    below (not any other day count you may see elsewhere). Output plain
+    Markdown only -- no raw HTML tags (no <br>, <ul>, <li>, etc.). If a table
+    cell needs more than one line, separate the clauses with a semicolon or
+    period instead of <br>; if it needs a list, write it as a short sentence
+    instead of <ul><li> -- the renderer displays HTML tags as literal text.
 
     {package_content}
     """
@@ -278,7 +302,12 @@ def generate_itinerary_from_params(city, travelers, duration, budget, focus, mus
     under "Must-See / Must-Do Activities" must be explicitly scheduled into a
     specific day and time block. If a "Local Highlights" section is present,
     treat it as trusted local knowledge and weave in the most relevant spots
-    where they fit naturally -- don't just append them as a list.
+    where they fit naturally -- don't just append them as a list. Output
+    plain Markdown only -- no raw HTML tags (no <br>, <ul>, <li>, etc.). If a
+    table cell needs more than one line, separate the clauses with a
+    semicolon or period instead of <br>; if it needs a list, write it as a
+    short sentence instead of <ul><li> -- the renderer displays HTML tags as
+    literal text.
 
     {package}
     """
