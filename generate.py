@@ -121,16 +121,17 @@ def _generate_content_groq(prompt):
 def _generate_content(client, prompt):
     """Calls Gemini (primary). If Gemini raises anything at all -- a 429
     rate limit, a 503 server error, or any other exception -- catches it
-    immediately, logs a warning, and falls back to Groq instead of crashing."""
+    immediately, logs a warning, and falls back to Groq instead of crashing.
+    Returns (text, engine_used) so callers can surface which one ran."""
     try:
         response = _generate_content_gemini(client, prompt)
-        return response.text
+        return response.text, "gemini"
     except Exception as exc:
         logger.warning(
             "Gemini request failed (%s: %s); falling back to Groq (%s).",
             type(exc).__name__, exc, GROQ_MODEL,
         )
-        return _generate_content_groq(prompt)
+        return _generate_content_groq(prompt), "groq"
 
 
 def call_gemini_chef(city, path):
@@ -150,13 +151,13 @@ def call_gemini_chef(city, path):
     {package_content}
     """
 
-    itinerary_text = _generate_content(client, prompt)
+    itinerary_text, engine = _generate_content(client, prompt)
 
     # Append the AI-generated itinerary below the package block
     separator = "\n\n---\n\n## Generated Itinerary\n\n"
     updated_content = package_content + separator + itinerary_text
     path.write_text(updated_content, encoding="utf-8")
-    print(f"Successfully populated itinerary in {path.name}!")
+    print(f"Successfully populated itinerary in {path.name}! (engine: {engine})")
 
 
 def slugify(city):
@@ -256,8 +257,9 @@ def build_package_from_params(city, travelers, duration, budget, focus, must_hav
 
 def generate_itinerary_from_params(city, travelers, duration, budget, focus, must_haves=""):
     """Builds a planning package straight from Streamlit form inputs (no
-    destinations/{city}/must_haves.txt required), calls Gemini, saves the
-    result to output/{city}_itinerary.md, and returns (markdown, saved_path).
+    destinations/{city}/must_haves.txt required), calls Gemini (falling back
+    to Groq if Gemini errors out), saves the result to
+    output/{city}_itinerary.md, and returns (markdown, saved_path, engine).
     """
     package = build_package_from_params(city, travelers, duration, budget, focus, must_haves)
 
@@ -280,11 +282,11 @@ def generate_itinerary_from_params(city, travelers, duration, budget, focus, mus
 
     {package}
     """
-    itinerary_text = _generate_content(client, prompt)
+    itinerary_text, engine = _generate_content(client, prompt)
 
     separator = "\n\n---\n\n## Generated Itinerary\n\n"
     path.write_text(package + separator + itinerary_text, encoding="utf-8")
-    return itinerary_text, path
+    return itinerary_text, path, engine
 
 
 def main():

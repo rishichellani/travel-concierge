@@ -121,7 +121,7 @@ if submitted:
     else:
         with st.spinner(f"Consulting Gemini to plan your trip to {destination.strip()}..."):
             try:
-                itinerary_md, saved_path = generate_itinerary_from_params(
+                itinerary_md, saved_path, engine = generate_itinerary_from_params(
                     city=destination,
                     travelers=int(travelers),
                     duration=int(duration),
@@ -136,9 +136,13 @@ if submitted:
                 st.session_state["itinerary_md"] = itinerary_md
                 st.session_state["saved_path"] = str(saved_path)
                 st.session_state["destination"] = destination.strip()
+                st.session_state["engine"] = engine
 
 if st.session_state.get("itinerary_md"):
-    st.success(f"Itinerary for **{st.session_state['destination']}** is ready!")
+    engine_label = {"gemini": "Gemini", "groq": "Groq (fallback)"}.get(
+        st.session_state.get("engine"), st.session_state.get("engine")
+    )
+    st.success(f"Itinerary for **{st.session_state['destination']}** is ready! _(generated with {engine_label})_")
     st.download_button(
         "Download itinerary (.md)",
         data=st.session_state["itinerary_md"],
