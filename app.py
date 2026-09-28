@@ -2,7 +2,8 @@
 
 Collects trip constraints in the sidebar, hands them to
 generate.generate_itinerary_from_params (which builds the planning package,
-calls Gemini, and saves a copy under output/), then renders the result.
+calls Gemini, and saves a copy under output/ on the server), then renders
+the result and offers it as a download to the visitor's own device.
 """
 import os
 
@@ -15,7 +16,7 @@ for _key in ("GEMINI_API_KEY", "GROQ_API_KEY"):
     if _key in st.secrets and not os.environ.get(_key):
         os.environ[_key] = st.secrets[_key]
 
-from generate import generate_itinerary_from_params
+from generate import generate_itinerary_from_params, slugify
 
 st.set_page_config(page_title="Travel Concierge", page_icon="🧭", layout="wide")
 
@@ -73,7 +74,14 @@ if submitted:
                 st.session_state["destination"] = destination.strip()
 
 if st.session_state.get("itinerary_md"):
-    st.success(f"Itinerary for **{st.session_state['destination']}** saved to `{st.session_state['saved_path']}`")
+    st.success(f"Itinerary for **{st.session_state['destination']}** is ready!")
+    st.download_button(
+        "Download itinerary (.md)",
+        data=st.session_state["itinerary_md"],
+        file_name=f"{slugify(st.session_state['destination'])}_itinerary.md",
+        mime="text/markdown",
+        use_container_width=True,
+    )
     st.markdown(st.session_state["itinerary_md"])
 else:
     st.info("Fill out the trip details in the sidebar and click **Generate Itinerary** to begin.")
